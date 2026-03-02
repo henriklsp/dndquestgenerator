@@ -75,10 +75,12 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
         llm = ChatMistralAI(model="mistral-tiny", api_key=fallback_key)
         response = llm.invoke(prompt)
 
-    extraprompt = "For the following AI-generated D&D scenario, identify inconsistencies and missing or unclear information." + \
-                  "Ask three 'Why' questions, three 'How' questions and three 'What if the players...' questions. " + \
+    extraprompt = "For the following AI-generated D&D scenario, identify inconsistencies and missing or unclear information " + \
+                  "by asking three 'Why' questions, three 'How' questions and three 'What if the players...' questions. " + \
                   "For each question, provide a definitive logical answer and make up the missing details. " +\
-                  "Finally add one potentially helpful creature or NPC and one extra enemy of Challenge Rating "+level_str+".\n\n" + response.content + "\n\n" +\
+                  "Simple, straightforward and logical is better than far-fetched, creative and convoluted. " +\
+                  "Finally add one potentially helpful creature or NPC and one extra enemy of Challenge Rating "+level_str + "\n\n" +\
+                  "Write in plain text without formatting or special characters except line breaks. \n" + \
                   "Use this format: \n - Why is the villain doing xxx? Because he intends to xxx.\n" +\
                   " - Why is that item there? Because it was xxx.\n" +\
                   " - Why is that creature hostile? Because it wants xxx.\n" +\
@@ -100,7 +102,8 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
                   " - What if the players cannot figure out the puzzle? They can circumvent it by destroying the door, but the noise attacts two guards: level 1, AC 13, 10 HP, armed with d6 longspear.\n" +\
                   " - What if the players attack the helpful gnome? Treat him as a level 3 wizard: AC 10, 14 HP, casts Gust of Wind (save DC 13 or be blown back and off balance). Will try to escape.\n\n" +\
                   " Extra creature: Raven perched on a tombstone. If given food, it will squawk loudly to reveal the tiger waiting in ambush. \n" +\
-                  " Extra enemy: A dragon statue in the courtyard. The evil sorcerer can use a scroll to animate it: AC 14, 31 HP, Hardness 10, slam d6+1. Reverts to an inanimate statue after 5 rounds. \n"
+                  " Extra enemy: A dragon statue in the courtyard. The evil sorcerer can use a scroll to animate it: AC 14, 31 HP, Hardness 10, slam d6+1. Reverts to an inanimate statue after 5 rounds. \n" +\
+                  " The scenario is the following: .\n\n" + response.content
 
     extraresponse = llm.invoke(extraprompt)
 
