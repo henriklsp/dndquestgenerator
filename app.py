@@ -46,9 +46,14 @@ section[data-testid="stSidebar"] {
     background-color: #ffffff;
 }
 
-/* Spinner text — was invisible against the new white background */
+/* Spinner — text and animated ring were invisible on white background */
 [data-testid="stSpinner"] p {
     color: #444444;
+}
+[data-testid="stSpinner"] div[role="status"] > div,
+[data-testid="stSpinner"] > div > div {
+    border-color: #cccccc !important;
+    border-top-color: #444444 !important;
 }
 
 /* Title */
@@ -86,7 +91,7 @@ with st.sidebar:
     # password managers, which is inappropriate for an API key.
     api_key = st.text_input("Your Mistral API key")
     st.markdown("[Get Key](https://docs.mistral.ai/getting-started/quickstart)")
-    st.info("Your key uses mistral-medium. No key or invalid key falls back to the built-in mistral-tiny (slower, shorter output).")
+    st.info("Leave API key blank to use the default mistral-tiny AI model. For better results, use your own API key.")
 
     generate_clicked = st.button("Generate Quest")
     st.markdown("---")
@@ -129,7 +134,7 @@ def format_scenario(text: str) -> str:
 # ---------------------------------------------------------------------------
 if generate_clicked:
     with st.spinner("Generating scenario..."):
-        scenario, extra, summary = generate_scenario(
+        scenario, extra, summary, error = generate_scenario(
             level=level,
             theme_override=theme_override,
             # Pass None (not empty string) so the function's truthiness check works
@@ -143,12 +148,27 @@ if generate_clicked:
     st.session_state["scenario"] = scenario
     st.session_state["extra"] = extra
     st.session_state["summary"] = summary
+    st.session_state["error"] = error
+
+# Show any error from the last generation run in red, just below the spinner
+if st.session_state.get("error"):
+    st.markdown(
+        f'<p style="color:#cc0000;">{html.escape(st.session_state["error"])}</p>',
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Output display
 # ---------------------------------------------------------------------------
-if "scenario" in st.session_state:
+if "scenario" not in st.session_state or not st.session_state["scenario"]:
+    st.markdown("""
+<div class="quest-output" style="color:#888; font-style:italic;">
+Press the Generate Quest button to create your scenario.
+</div>
+""", unsafe_allow_html=True)
+
+elif st.session_state["scenario"]:
     scenario = st.session_state["scenario"]
     extra    = st.session_state["extra"]
     summary  = st.session_state["summary"]
@@ -217,7 +237,7 @@ function fallback(text, btn) {{
     # Both use <br> tags for line breaks rather than raw \n so that
     # Streamlit's Markdown parser cannot misinterpret lines starting with
     # "- " or "* " as list items (which would add unwanted margins).
-    extra_html = html.escape(extra).replace('\n', '<br>')
+    extra_html = "<strong>Extra</strong><br><br>" + html.escape(extra).replace('\n', '<br>')
     st.markdown(f"""
 <div class="quest-output">
 <p style="font-size:1.15em; font-style:italic; margin:0 0 1em 0;">{html.escape(summary)}</p>
