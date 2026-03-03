@@ -69,7 +69,7 @@ duration_list = ["A single session."]
 # Main generation function
 # ---------------------------------------------------------------------------
 
-def generate_scenario(level: int, theme_override: str, user_key: str | None, fallback_key: str) -> tuple[str, str, str]:
+def generate_scenario(level: int, theme_override: str, user_key: str | None, fallback_key: str) -> tuple[str, str, str, str]:
     """
     Generate a D&D scenario using Mistral AI in two passes:
       1. Build the full scenario (plot, locations, enemies, items, etc.)
@@ -85,9 +85,11 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
                         free-tier limits.
 
     Returns:
-        A tuple (scenario_text, extra_text, summary).
+        A tuple (scenario_text, extra_text, summary, error).
         summary is a one-line description of the randomly chosen ingredients,
         shown at the top of the output so the DM knows what was rolled.
+        error is an empty string on success, or a short message describing
+        what went wrong (displayed in red in the UI).
     """
 
     # --- Pick random ingredients ---
@@ -98,7 +100,7 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
     level_str = str(level)
 
     # Human-readable summary of what was rolled, returned for display in the UI
-    summary = f"The quest to {quest} in {location} with {theme} for a level {level_str} party."
+    summary = f"The quest to {quest} in {location} with {theme} for a level {level_str} party.".capitalize()
 
     # --- Choose model and API key ---
     # Use mistral-medium when the user supplies their own key (better output).
@@ -151,13 +153,19 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
         duration=duration,
     )
 
-    # If the user-supplied key is rejected by the API, silently fall back to
-    # the built-in key with mistral-tiny so the app still produces output.
+    error = ""
+
+    # First attempt. If the user-supplied key is rejected, fall back to the
+    # built-in key with mistral-tiny and flag it so the UI can inform the user.
     try:
         response = llm.invoke(prompt)
     except Exception:
+        error = "(Mistral API key failed)"
         llm = ChatMistralAI(model="mistral-tiny", api_key=fallback_key)
-        response = llm.invoke(prompt)
+        try:
+            response = llm.invoke(prompt)
+        except Exception:
+            return ("", "", summary, "(LLM call failed. Cannot generate scenario)")
 
     # --- Pass 2: review and enrich the scenario ---
     # extraprompt feeds the first response back to the LLM and asks it to:
@@ -198,7 +206,19 @@ def generate_scenario(level: int, theme_override: str, user_key: str | None, fal
 
     extraresponse = llm.invoke(extraprompt)
 
-    return (response.content, extraresponse.content, summary)
+    # Strip any LLM preamble before the first "Why" question.
+    # Mistral sometimes adds an intro sentence or horizontal rule before the
+    # Q&A block. We find "Why", walk back to the start of that line (rfind "\n")
+    # so the line marker is preserved regardless of character (-, *, 1., etc.),
+    # then discard everything before it. If "Why" isn't found, text is left intact.
+    extra = extraresponse.content
+    idx = extra.find("Why")
+    if idx > 0:
+        line_start = extra.rfind("\n", 0, idx)
+        if line_start >= 0:
+            extra = extra[line_start + 1:]
+
+    return (response.content, extra, summary, error)
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +233,7 @@ if __name__ == "__main__":
     # Set MISTRAL_API_KEY before running, e.g.:  export MISTRAL_API_KEY=your_key
     fallback = os.environ.get("MISTRAL_API_KEY", "")
 
-    response_content, extra_content, summary = generate_scenario(
+    response_content, extra_content, summary, error = generate_scenario(
         level=1,
         theme_override="",
         user_key=None,
