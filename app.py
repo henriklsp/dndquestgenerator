@@ -90,8 +90,7 @@ with st.sidebar:
     # Plain text input — using type="password" would trigger browser
     # password managers, which is inappropriate for an API key.
     api_key = st.text_input("Your Mistral API key")
-    st.markdown("[Get Key](https://docs.mistral.ai/getting-started/quickstart)")
-    st.info("Leave API key blank to use the default mistral-tiny AI model. For better results, use your own API key.")
+    st.info("Leave the API key blank to use the default mistral-tiny AI model. For better results, use your own API key.\n\n[Get Key](https://docs.mistral.ai/getting-started/quickstart)")
 
     generate_clicked = st.button("Generate Quest")
     st.markdown("---")
